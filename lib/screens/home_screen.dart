@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import '../main.dart';
 import '../models/time_entry.dart';
 import '../services/time_store.dart';
+import '../theme/app_theme.dart';
+import '../widgets/gradient_widgets.dart';
 import 'monthly_report_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -22,8 +24,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final total = entries.fold<Duration>(Duration.zero, (s, e) => s + e.duration);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('TimeFlow'),
+      appBar: GradientAppBar(
+        title: 'TimeFlow',
         actions: [
           IconButton(
             tooltip: 'Monthly report',
@@ -33,50 +35,44 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _addEntry,
-        icon: const Icon(Icons.add),
-        label: const Text('Log time'),
-      ),
+      floatingActionButton: GradientFab(onPressed: _addEntry, label: 'Log time'),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
         children: [
-          Row(children: [
-            IconButton(
-              onPressed: () => setState(() => selectedDay =
-                  selectedDay.subtract(const Duration(days: 1))),
-              icon: const Icon(Icons.chevron_left),
-            ),
-            Expanded(child: FilledButton.tonalIcon(
-              onPressed: () async {
-                final d = await showDatePicker(
-                  context: context, firstDate: DateTime(2020),
-                  lastDate: DateTime(2100), initialDate: selectedDay);
-                if (d != null) setState(() => selectedDay = d);
-              },
-              icon: const Icon(Icons.calendar_today),
-              label: Text(DateFormat('EEE, d MMM yyyy').format(selectedDay)),
-            )),
-            IconButton(
-              onPressed: () => setState(() => selectedDay =
-                  selectedDay.add(const Duration(days: 1))),
-              icon: const Icon(Icons.chevron_right),
-            ),
-          ]),
+          PeriodSelector(
+            label: DateFormat('EEE, d MMM yyyy').format(selectedDay),
+            onPrevious: () => setState(() =>
+                selectedDay = selectedDay.subtract(const Duration(days: 1))),
+            onNext: () => setState(() =>
+                selectedDay = selectedDay.add(const Duration(days: 1))),
+            onLabelTap: () async {
+              final d = await showDatePicker(
+                context: context, firstDate: DateTime(2020),
+                lastDate: DateTime(2100), initialDate: selectedDay);
+              if (d != null) setState(() => selectedDay = d);
+            },
+          ),
           const SizedBox(height: 16),
-          Card(child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(children: [
-              const Icon(Icons.timelapse, size: 36),
-              const SizedBox(width: 16),
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Recorded today'),
-                Text(formatDuration(total),
-                    style: Theme.of(context).textTheme.headlineMedium),
-              ]),
+          GradientHeroCard(child: Row(children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: const BoxDecoration(
+                  color: Colors.white12, shape: BoxShape.circle),
+              child: const Icon(Icons.timelapse, size: 30, color: Colors.white),
+            ),
+            const SizedBox(width: 16),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Recorded today',
+                  style: TextStyle(color: Colors.white70, fontSize: 13)),
+              const SizedBox(height: 4),
+              Text(formatDuration(total), style: const TextStyle(
+                  color: Colors.white, fontWeight: FontWeight.w700, fontSize: 28)),
             ]),
-          )),
-          const SizedBox(height: 12),
+            const Spacer(),
+            Text('${entries.length} ${entries.length == 1 ? 'entry' : 'entries'}',
+                style: const TextStyle(color: Colors.white70, fontSize: 13)),
+          ])),
+          const SizedBox(height: 20),
           if (entries.isEmpty)
             const Card(child: Padding(
               padding: EdgeInsets.all(28),
@@ -84,20 +80,30 @@ class _HomeScreenState extends State<HomeScreen> {
                 'No activities recorded for this day.\nTap “Log time” to start.',
                 textAlign: TextAlign.center)),
             ))
-          else
+          else ...[
+            Text('Activities', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
             ...entries.map((e) => Card(child: ListTile(
-              leading: Text(e.category.emoji, style: const TextStyle(fontSize: 26)),
-              title: Text(e.title.isEmpty ? e.category.label : e.title),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              leading: CircleAvatar(
+                radius: 22,
+                backgroundColor: AppColors.navy700.withValues(alpha: 0.08),
+                child: Text(e.category.emoji, style: const TextStyle(fontSize: 22)),
+              ),
+              title: Text(e.title.isEmpty ? e.category.label : e.title,
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
               subtitle: Text('${DateFormat.Hm().format(e.start)} – '
-                  '${DateFormat.Hm().format(e.end)}  •  ${formatDuration(e.duration)}'),
+                  '${DateFormat.Hm().format(e.end)}  •  ${formatDuration(e.duration)}',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12.5)),
               trailing: IconButton(
-                icon: const Icon(Icons.delete_outline),
+                icon: Icon(Icons.delete_outline, color: Colors.grey.shade500),
                 onPressed: () async {
                   await widget.store.delete(e.id);
                   setState(() {});
                 },
               ),
             ))),
+          ],
         ],
       ),
     );
@@ -151,10 +157,12 @@ class _EntryDialogState extends State<EntryDialog> {
           value: c, child: Text('${c.emoji} ${c.label}'))).toList(),
         onChanged: (v) => setState(() => category = v!),
       ),
+      const SizedBox(height: 12),
       TextField(controller: title,
           decoration: const InputDecoration(labelText: 'Title (optional)')),
       _timeButton('Start', start, (v) => setState(() => start = v)),
       _timeButton('End', end, (v) => setState(() => end = v)),
+      const SizedBox(height: 8),
       TextField(controller: note, maxLines: 2,
           decoration: const InputDecoration(labelText: 'Note (optional)')),
     ])),
@@ -176,7 +184,7 @@ class _EntryDialogState extends State<EntryDialog> {
         contentPadding: EdgeInsets.zero,
         title: Text(label),
         subtitle: Text(DateFormat.Hm().format(value)),
-        trailing: const Icon(Icons.schedule),
+        trailing: const Icon(Icons.schedule, color: AppColors.navy600),
         onTap: () async {
           final t = await showTimePicker(context: context,
               initialTime: TimeOfDay.fromDateTime(value));

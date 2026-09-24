@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'screens/home_screen.dart';
 import 'services/time_store.dart';
+import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,9 +18,7 @@ class TimeFlowApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
         title: 'TimeFlow',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.indigo),
-        darkTheme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.indigo,
-            brightness: Brightness.dark),
+        theme: buildAppTheme(),
         home: HomeScreen(store: store),
       );
 }
