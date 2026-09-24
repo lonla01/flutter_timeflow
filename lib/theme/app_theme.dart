@@ -81,6 +81,23 @@ ThemeData buildAppTheme() {
       iconTheme: IconThemeData(color: Colors.white),
       actionsIconTheme: IconThemeData(color: Colors.white),
     ),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: Colors.white,
+      elevation: 3,
+      indicatorColor: AppColors.navy700.withValues(alpha: 0.12),
+      labelTextStyle: WidgetStateProperty.resolveWith((states) {
+        final selected = states.contains(WidgetState.selected);
+        return TextStyle(
+          fontSize: 12,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+          color: selected ? AppColors.navy800 : Colors.grey.shade600,
+        );
+      }),
+      iconTheme: WidgetStateProperty.resolveWith((states) {
+        final selected = states.contains(WidgetState.selected);
+        return IconThemeData(color: selected ? AppColors.navy800 : Colors.grey.shade500);
+      }),
+    ),
     cardTheme: CardThemeData(
       elevation: 0,
       color: Colors.white,

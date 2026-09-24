@@ -2,14 +2,17 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../main.dart';
+import '../models/category.dart';
 import '../models/time_entry.dart';
+import '../services/category_store.dart';
 import '../services/time_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/gradient_widgets.dart';
 
 class MonthlyReportScreen extends StatefulWidget {
-  const MonthlyReportScreen({super.key, required this.store});
+  const MonthlyReportScreen({super.key, required this.store, required this.categories});
   final TimeStore store;
+  final CategoryStore categories;
 
   @override
   State<MonthlyReportScreen> createState() => _MonthlyReportScreenState();
@@ -21,9 +24,9 @@ class _MonthlyReportScreenState extends State<MonthlyReportScreen> {
   @override
   Widget build(BuildContext context) {
     final summary = widget.store.summaryForMonth(month);
-    final total = summary.values.fold<Duration>(Duration.zero, (a, b) => a + b);
+    final total = summary.values.fold<Duration>(Duration.zero, (a, b) => a + b.total);
     final sorted = summary.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+      ..sort((a, b) => b.value.total.compareTo(a.value.total));
 
     return Scaffold(
       appBar: const GradientAppBar(title: 'Monthly report'),
@@ -65,9 +68,9 @@ class _MonthlyReportScreenState extends State<MonthlyReportScreen> {
                 sections: [
                   for (final item in sorted)
                     PieChartSectionData(
-                      value: item.value.inMinutes.toDouble(),
+                      value: item.value.total.inMinutes.toDouble(),
                       color: _colorFor(item.key),
-                      title: '${(item.value.inMinutes / total.inMinutes * 100).round()}%',
+                      title: '${(item.value.total.inMinutes / total.inMinutes * 100).round()}%',
                       radius: 70,
                       titleStyle: const TextStyle(fontWeight: FontWeight.bold,
                           color: Colors.white, fontSize: 12),
@@ -76,35 +79,66 @@ class _MonthlyReportScreenState extends State<MonthlyReportScreen> {
               )),
             ])),
             const SizedBox(height: 8),
-            ...sorted.map((item) => ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: CircleAvatar(
-                radius: 20,
-                backgroundColor: _colorFor(item.key).withValues(alpha: 0.15),
-                child: Text(item.key.emoji, style: const TextStyle(fontSize: 20)),
-              ),
-              title: Text(item.key.label,
-                  style: const TextStyle(fontWeight: FontWeight.w500)),
-              subtitle: Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    minHeight: 6,
-                    color: _colorFor(item.key),
-                    value: total.inMinutes == 0 ? 0 :
-                        item.value.inMinutes / total.inMinutes),
-                ),
-              ),
-              trailing: Text(formatDuration(item.value),
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
-            )),
+            for (final item in sorted)
+              ..._categoryRows(widget.categories.byId(item.key), item.value, total),
           ]))),
         ],
       ]),
     );
   }
 
-  Color _colorFor(ActivityCategory c) =>
-      categoryChartColors[c.index % categoryChartColors.length];
+  List<Widget> _categoryRows(ActivityCategory category, CategorySummary summary, Duration total) {
+    final color = _colorFor(category.id);
+    final subs = summary.bySubcategory.entries
+        .where((e) => e.key != null).toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final unassigned = summary.bySubcategory[null];
+    return [
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: CircleAvatar(
+          radius: 20,
+          backgroundColor: color.withValues(alpha: 0.15),
+          child: Text(category.emoji, style: const TextStyle(fontSize: 20)),
+        ),
+        title: Text(category.name, style: const TextStyle(fontWeight: FontWeight.w500)),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              minHeight: 6,
+              color: color,
+              value: total.inMinutes == 0 ? 0 :
+                  summary.total.inMinutes / total.inMinutes),
+          ),
+        ),
+        trailing: Text(formatDuration(summary.total),
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+      ),
+      if (subs.isNotEmpty) ...[
+        for (final sub in subs)
+          _subRow(category.subcategory(sub.key)?.name ?? 'Unknown', sub.value, color),
+        if (unassigned != null) _subRow('Unspecified', unassigned, color),
+      ],
+    ];
+  }
+
+  Widget _subRow(String name, Duration duration, Color color) => Padding(
+        padding: const EdgeInsets.only(left: 56, bottom: 6),
+        child: Row(children: [
+          Container(width: 6, height: 6,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          const SizedBox(width: 10),
+          Expanded(child: Text(name,
+              style: TextStyle(color: Colors.grey.shade700, fontSize: 13.5))),
+          Text(formatDuration(duration),
+              style: TextStyle(color: Colors.grey.shade700, fontSize: 13.5)),
+        ]),
+      );
+
+  Color _colorFor(String categoryId) {
+    final index = widget.categories.all.indexWhere((c) => c.id == categoryId);
+    return categoryChartColors[(index < 0 ? 0 : index) % categoryChartColors.length];
+  }
 }
